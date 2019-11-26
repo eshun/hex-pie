@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,height=device-height">
+    <title>饼图-六边形</title>
+    <style>
+    ::-webkit-scrollbar{display:none;}
+    html,body{overflow:hidden;height:100%;margin:0;}
+    #pie{
+      
+    }
+    </style>
+</head>
+<body>
+  <canvas id="pie"></canvas>
+<script>
+
+  const hex_pie=function(domID,data,opt){
+    var hex_max=[];
+    var hex_positions=[];// 0左上 1右上 2右下 3左下
+    var hex_centers=[];
+    var hex_txts=[];
+    var hex_id=domID;
+    var hex_data=data||[];
+
+    var hex_img =opt&&opt.img?opt.img:'';
+    var hex_size=opt&&opt.size?opt.size:window.innerHeight;
+    var hex_render_draw=opt&&opt.render_draw?opt.render_draw:null;//function
+    var hex_render_text=opt&&opt.render_text?opt.render_text:null;//function
+    var hex_text_color='#ffaf3c';
+    var hex_lineWidth =3;
+    var hex_c=hex_size/2;
+    var hex_p =0.0958*hex_size+hex_lineWidth;
+    var c = hex_c-hex_p;
+    var canvas,h,img,r;
+
+    var hexagon = [{x:c*Math.sqrt(3)/2, y:c/2}, {x:0, y:c}, {x:-c*Math.sqrt(3)/2, y:c/2}, {x:-c*Math.sqrt(3)/2, y:-c/2}, {x:0, y:-c}, {x:c*Math.sqrt(3)/2, y:-c/2}];
+    var hex_angles = [Math.PI / 6, Math.PI / 2, 5*Math.PI / 6, 7*Math.PI / 6, 3*Math.PI / 2, 11*Math.PI / 6];
+    //var defaults={};
+    //this.options= Object.assign({},defaults,opt);
+
+    function regions(values)
+    {
+      var i, total = 0, regions = [];
+      
+      for(i=0; i<values.length; i++)
+        total += values[i];
+
+      var prev_point = {x:hexagon[0].x, y:0}, last_angle = 0;
+      
+      for(i=0; i<values.length; i++)
+      {
+        var j, theta, p = [{x:0,y:0}, prev_point], beta = last_angle + values[i] * 2 * Math.PI / total;
+        
+        for( j=0; j<hexagon.length; j++)
+        {
+          theta = hex_angles[j];
+          if( theta <= last_angle )
+            continue;
+          else if( theta >= beta )
+            break;
+          else{
+            p.push({x:hexagon[j].x,y: hexagon[j].y});
+          }
+        }
+        
+        var alpha = beta - (Math.PI * (j % 6) / 3); // segment 6 is segment 0
+        var d = hexagon[0].x / Math.cos(alpha);
+        var point = {x:d*Math.cos(beta), y:d*Math.sin(beta)};
+        
+        p.push( point );
+        regions.push(p.slice(0));
+        
+        last_angle = beta;
+        prev_point = {x:point.x, y:point.y};
+      }
+      
+      return regions;
+    }
+    function color(i){
+      var j=i%6;
+      var colors = ['#1990ff', '#12c4c3', '#2fc15a', '#facc14', '#f04864', '#8544e0'];
+      return colors[j];
+    }
+    function init(){
+      canvas = document.getElementById(hex_id);
+      canvas.height=hex_size;
+      canvas.width=hex_size;
+      h = canvas.getContext('2d');
+      h.clearRect(0, 0, hex_size, hex_size); //清除所有内容
+      h.save();
+      img = new Image();   // 创建一个<img>元素
+      img.src = hex_img;
+      h.font = "14px Comic Sans MS";
+      h.strokeStyle="rgba(255,255,255,1)";
+      h.lineWidth=hex_lineWidth;
+
+      var values = loadVal();
+
+      r = regions(values);
+      draw();
+    }
+    function loadVal(){
+      var v=[];
+      hex_data.forEach(d => {
+        var i=0;
+        if(d.hasOwnProperty('value')){
+          i=d.value
+        }
+        v.push(i);
+      });
+      return v;
+    }
+    function draw() {
+      for(var i=0; i<r.length; i++)
+      {
+          //h.shadowOffsetX = 2; // 阴影Y轴偏移
+          //h.shadowOffsetY = 2; // 阴影X轴偏移
+          //h.shadowBlur = 5; // 模糊尺寸
+          //h.shadowColor = 'rgba(0, 0, 0, 0.5)'; // 颜色
+          var z=r[i].length;
+          var min={x:hex_c+r[i][1].x,y:hex_c-r[i][1].y};
+          var max={x:hex_c+r[i][1].x,y:hex_c-r[i][1].y};
+          
+          h.fillStyle = color([i]);
+          h.beginPath();
+          h.moveTo(hex_c, hex_c); // 从 0,0 开始  
+          for(var j=1; j<z; j++){
+            var x=hex_c+r[i][j].x;
+            var y=hex_c-r[i][j].y;
+            h.lineTo(x, y);
+            if(x>max.x){
+              max.x=x;
+            }
+            if(x<min.x){
+              min.x=x;
+            }
+            if(y>max.y){
+              max.y=y;
+            }
+            if(y<min.y){
+              min.y=y;
+            }
+          }
+          hex_max[i]=[min,max];
+          h.closePath();
+          h.stroke();
+          h.fill();
+          h.save();      
+      }
+      for(var i=0; i<r.length; i++)
+      {
+          var p=hex_p/4;
+          var min=hex_max[i][0];
+          var max=hex_max[i][1];
+          var x=(min.x+max.x)/2;
+          var y=(min.y+max.y)/2;
+          var xx=x,yy=y;
+          var t = Math.sqrt((xx-=hex_c)*xx + (yy-=hex_c)*yy )/2;
+          var rr=0.3;
+          if(t>hex_c*rr){   
+            var xx=(x-hex_c)*rr,yy=(y-hex_c)*rr;
+                      
+            if(x < hex_c){
+              xx=(hex_c-x)*rr;
+              x=x+xx;
+            }else{
+              x=x-xx;
+            }
+            if(y < hex_c){
+              yy=(hex_c-y)*rr;
+              y=y+yy;
+            }else{
+              y=y-yy;
+            }            
+          }       
+
+          if(max.x<hex_c){
+            if(max.y<hex_c){
+              hex_positions[i]=0;//0左上
+            }else{
+              hex_positions[i]=3;//3左下
+            }
+          }
+          else {
+            if(min.y>hex_c){
+              hex_positions[i]=2;//2右下
+            }else{
+              hex_positions[i]=1;//1右上
+            }
+          }
+          if(hex_positions[i]==0){
+            hex_txts[i]={x:min.x-p,y:min.y-p};
+          }      
+          if(hex_positions[i]==1){
+            hex_txts[i]={x:max.x+p,y:min.y-p};
+          }
+          if(hex_positions[i]==2){
+            hex_txts[i]={x:max.x+p,y:max.y+p};
+          }
+          if(hex_positions[i]==3){
+            hex_txts[i]={x:min.x-p,y:max.y+p};
+          }
+          hex_centers[i]={x,y};
+      }
+      if(hex_img){
+        img.onload = function(){    
+          h.drawImage(img,0,0,hex_size,hex_size);
+          loadText();
+        }
+      }else{
+        loadText();
+      }
+    }
+    function loadText(){
+      //饼内文字
+      for(var i=0; i<r.length; i++)
+      {
+        var hex_center=hex_centers[i];
+        h.fillStyle = 'rgba(0, 0, 0, 1)';
+        var text=hex_data[i].text;//hex_render_draw
+        if(hex_render_draw){
+          text=hex_render_draw(hex_data[i]);
+        }
+        var txt_m=h.measureText(text);
+        h.fillText(text, hex_center.x, hex_center.y);
+        h.restore();
+        h.save();
+      }
+      //饼外文字
+      for(var i=0; i<r.length; i++)
+      {
+        var hex_center=hex_centers[i];
+        var hex_tet=hex_txts[i];
+        var hex_position=hex_positions[i];
+        var text=hex_data[i].text;//hex_render_text
+        if(hex_render_draw){
+          text=hex_render_text(hex_data[i]);
+        }
+        var txt_m=h.measureText(text);
+        var x=hex_tet.x,y=hex_tet.y;
+        if((x-txt_m.width)<=hex_p){
+          x=hex_p+txt_m.width;
+        }
+        if(y<=hex_p){
+          y=hex_p;
+        }
+
+        if((x+txt_m.width)>=hex_size-hex_p){
+          x=x-((x+txt_m.width)-(hex_size-hex_p))/2;
+        }
+        if(y>=hex_size-hex_p){
+          y=hex_size-hex_p;
+        }
+
+        h.strokeStyle = hex_text_color;
+        h.fillStyle=hex_text_color; 
+        h.lineWidth=1;
+        h.beginPath();
+        h.moveTo(hex_center.x-10, hex_center.y); 
+        h.lineTo(x, y);
+        h.moveTo(x,y);
+        var pp=hex_p/3;
+        if(hex_position==0||hex_position==3){
+            h.lineTo(x-pp, y);
+            h.arc(x-pp,y,2,0,2*Math.PI);
+            h.fillText(text,x-pp-2-txt_m.width,y);
+        }else{
+            h.lineTo(x+pp, y);
+            h.arc(x+pp,y,2,0,2*Math.PI);
+            h.fillText(text,x+pp+2,y);
+        }
+        h.closePath();
+        h.stroke();
+        h.fill();
+        h.save();
+      }
+    }
+    
+    init();
+  }
+
+
+  var size=window.innerHeight;
+  var img ='psgBorder.png';
+  var data=[{text:'text1',value:10},{text:'text2',value:40},{text:'text3',value:30},{text:'text4',value:20},{text:'text5',value:10}];
+  hex_pie('pie',data,{size,img});
+
+
+</script>
+</body>
+</html>
