@@ -1,3 +1,3 @@
 # hex-pie
 
-[1]: img.png
+![1](img.png)
